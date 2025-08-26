@@ -19,9 +19,9 @@ def read_pdf(url: str)-> str:
         num_page=doc.page_count
 
         text =""
-        for i, page in enumerate(doc.page,1):
+        for i, page in enumerate(doc, 1):
             print(f"Extracting text from page {i}/{num_page}")
-            text +=page.extract_text() + "/n"
+            text += page.get_text() + "\n"
         
         print(f"Successfull extracted {len(text)} characters of text from pdf")
 
@@ -30,4 +30,5 @@ def read_pdf(url: str)-> str:
             print(f"Error reading PDF: {str(e)}")
 
             raise
+    return text
             

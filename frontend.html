@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>AI Paper Generate Assistannt</title>
+</head>
+<body>
+  <h2>AI Researcher Chat</h2>
+
+  <div>
+    <textarea id="userInput" rows="3" cols="50" placeholder="Type your question..."></textarea><br>
+    <button onclick="sendMessage()">Send</button>
+  </div>
+
+  <div id="chatBox" style="margin-top:20px; border:1px solid #ccc; padding:10px;">
+    <strong>Chat Messages:</strong><br>
+  </div>
+
+  <script>
+    async function sendMessage() {
+      let msg = document.getElementById("userInput").value;
+      if (!msg) return;
+
+      let res = await fetch("http://127.0.0.1:8000/send_message", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ content: msg })
+      });
+
+      let data = await res.json();
+      document.getElementById("chatBox").innerHTML += `<br><b>You:</b> ${msg}`;
+      document.getElementById("chatBox").innerHTML += `<br><b>Bot:</b> ${data.reply}`;
+      document.getElementById("userInput").value = "";
+    }
+  </script>
+</body>
+</html>

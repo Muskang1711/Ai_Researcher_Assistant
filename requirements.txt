@@ -3,3 +3,6 @@ langchain
 langgraph
 langchain_huggingface
 PyMuPDF
+langgraph-checkpoint-sqlite
+fastapi
+uvicorn
