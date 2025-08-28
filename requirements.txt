@@ -6,3 +6,4 @@ PyMuPDF
 langgraph-checkpoint-sqlite
 fastapi
 uvicorn
+streamlit

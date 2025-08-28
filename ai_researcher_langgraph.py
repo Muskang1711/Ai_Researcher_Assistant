@@ -1,78 +1,64 @@
-from typing import Annotated, Literal
+# Step1: Define state
 from typing_extensions import TypedDict
-from dotenv import load_dotenv
+from typing import Annotated, Literal
 from langgraph.graph.message import add_messages
-import logging
+from dotenv import load_dotenv
 
-logging.basicConfig(
-    level=logging.DEBUG,
-    format="%(asctime)s [%(levelname)s] %(message)s",
-)
-logger = logging.getLogger(__name__)
-
-# Load environment variables
 load_dotenv()
 
-# Step 1: Define State
 class State(TypedDict):
     messages: Annotated[list, add_messages]
 
-# Step 2: Define Tools
-from arxiv_tool import arxiv_search
-from write_pdf import render_latex_pdf
-from read_pdf import read_pdf
+# Step2: Define ToolNode & Tools
+from arxiv_tool import *
+from read_pdf import *
+from write_pdf import * 
 from langgraph.prebuilt import ToolNode
 
 tools = [arxiv_search, read_pdf, render_latex_pdf]
 tool_node = ToolNode(tools)
 
-# Step 3: Define Model
+
+# Step3: Setup LLM
+import os
 from langchain_google_genai import ChatGoogleGenerativeAI
 
-model = ChatGoogleGenerativeAI(model="gemini-1.5-flash").bind_tools(tools)
+model = ChatGoogleGenerativeAI(model="gemini-2.5-pro", api_key=os.getenv("GOOGLE_API_KEY")).bind_tools(tools)
+model = model.bind_tools(tools)
 
-# Step 4: Define Workflow Nodes
-from langgraph.graph import START, StateGraph
-from langgraph.constants import END
+# Step4: Setup graph
+
+#from langgraph.prebuilt import ToolNode
+from langgraph.graph import  START, StateGraph
+from langgraph.graph import END
+
 def call_model(state: State):
-    logger.debug("=== [Agent Node] ===")
-    logger.debug(f"Incoming state messages: {state['messages']}")
-
     messages = state["messages"]
     response = model.invoke(messages)
     return {"messages": [response]}
 
+
 def should_continue(state: State) -> Literal["tools", "END"]:
     messages = state["messages"]
     last_message = messages[-1]
-
-    logger.debug("=== [should_continue] ===")
-    last_message = state["messages"][-1]
-    logger.debug(f"Last message: {last_message}")
-
-    if getattr(last_message, "tool_calls", None):  # safer than last_message.tool_call
+    if last_message.tool_calls:
         return "tools"
-    logger.debug("Decision: → END")
     return "END"
 
-# Step 5: Define Graph Workflow
 workflow = StateGraph(State)
 workflow.add_node("agent", call_model)
 workflow.add_node("tools", tool_node)
-
 workflow.add_edge(START, "agent")
-
-workflow.add_conditional_edges(
-    "agent",
-    should_continue,
-    {
-        "tools": "tools",
-        "END": END,
-    },
-)
+workflow.add_conditional_edges("agent", should_continue)
 workflow.add_edge("tools", "agent")
 
-# Initial system prompt
+from langgraph.checkpoint.memory import MemorySaver
+checkpointer = MemorySaver()
+config = {"configurable": {"thread_id": 222222}}
+
+graph = workflow.compile(checkpointer=checkpointer)
+
+# Step5: TESTING
 INITIAL_PROMPT = """
 You are an expert researcher in the fields of physics, mathematics,
 computer science, quantitative biology, quantitative finance, statistics,
@@ -95,7 +81,22 @@ decide what one you should write a paper about.
 
 Finally, I'll ask you to go ahead and write the paper. Make sure that you
 include mathematical equations in the paper. Once it's complete, you should
-render it as a LaTeX PDF. Make sure that TEX file is correct and there is no error in it so that PDF is easily exported. When you give papers references, always attach the pdf links to the paper
-"""
+render it as a LaTeX PDF. Make sure that TEX file is correct and there is no error in it so that PDF is easily exported. When you give papers references, always attatch the pdf links to the paper"""
 
-graph = workflow
+def print_stream(stream):
+    for s in stream:
+        message = s["messages"][-1]
+        print(f"Message received: {message.content[:200]}...")
+        message.pretty_print()
+
+"""while True:
+    user_input = input("User: ")
+    if user_input:
+        messages = [
+                    {"role": "system", "content": INITIAL_PROMPT},
+                    {"role": "user", "content": user_input}
+                ]
+        input_data = {
+            "messages" : messages
+        }
+        print_stream(graph.stream(input_data, config, stream_mode="values"))"""

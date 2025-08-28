@@ -1,4 +1,3 @@
-
 # Step1: Access arXiv using URL
 import requests
 
@@ -88,9 +87,8 @@ def arxiv_search(topic: str) -> list[dict]:
     print("ARXIV Agent called")
     print(f"Searching arXiv for papers about: {topic}")
     papers = search_arxiv_papers(topic)
-    entries = papers.get("entries", [])
     if len(papers) == 0:
         print(f"No papers found for topic: {topic}")
         raise ValueError(f"No papers found for topic: {topic}")
     print(f"Found {len(papers['entries'])} papers about {topic}")
-    return entries
+    return papers['entries']
